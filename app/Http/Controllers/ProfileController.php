@@ -8,11 +8,10 @@ use App\Models\GameStatistic;
 
 class ProfileController extends Controller
 {
-    public function getUserProfile()
+    public function getUserProfile(Request $request)
     {
         try {
-            // Por ahora, para pruebas, obtén el primer usuario
-            $user = User::first();
+            $user = $request->user(); // Obtiene el usuario autenticado
             $statistics = GameStatistic::where('user_id', $user->id)->first();
 
             if (!$statistics) {
@@ -54,7 +53,7 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error fetching profile data',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage() // Esto te dará más información sobre el error
             ], 500);
         }
     }

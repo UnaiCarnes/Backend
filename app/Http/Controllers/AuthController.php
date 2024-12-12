@@ -11,49 +11,100 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'birth_date' => 'required|date'
-        ]);
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => [
+                    'required',
+                    'string',
+                    'email:rfc,dns', // Valida que sea un email real
+                    'max:255',
+                    'unique:users',
+                    'regex:/^[a-zA-Z0-9._%+-]+@gmail\.com$/i' // Solo permite emails de Gmail
+                ],
+                'password' => [
+                    'required',
+                    'string',
+                    'min:8', // Mínimo 8 caracteres
+                    'confirmed', // Requiere password_confirmation
+                    'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/' // Debe contener al menos una mayúscula, una minúscula y un número
+                ],
+                'password_confirmation' => 'required',
+                'birth_date' => [
+                    'required',
+                    'date',
+                    'before_or_equal:' . now()->subYears(16)->format('Y-m-d'), // Mínimo 16 años
+                    'after_or_equal:' . now()->subYears(100)->format('Y-m-d') // Máximo 100 años
+                ]
+            ], [
+                // Mensajes de error personalizados
+                'email.regex' => 'Solo se permiten correos de Gmail.',
+                'password.regex' => 'La contraseña debe contener al menos una mayúscula, una minúscula y un número.',
+                'password.confirmed' => 'Las contraseñas no coinciden.',
+                'birth_date.before_or_equal' => 'Debes tener al menos 16 años para registrarte.',
+                'birth_date.after_or_equal' => 'La fecha de nacimiento no es válida.'
+            ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password),
-            'birth_date' => $request->birth_date
-        ]);
+            // Revocar el token actual si existe
+            if ($request->user()) {
+                $request->user()->currentAccessToken()->delete();
+            }
 
-        // Crear estadísticas iniciales para el usuario
-        GameStatistic::create([
-            'user_id' => $user->id,
-            'player_id' => 'P' . str_pad($user->id, 8, '0', STR_PAD_LEFT),
-            'balance' => 1000.00,
-            'games_played' => 0,
-            'most_played_game' => 'None',
-            'games_won' => 0,
-            'games_lost' => 0,
-            'win_rate' => 0,
-            'average_bet' => 0,
-            'total_winnings' => 0,
-            'total_losses' => 0,
-            'last_prize' => 0,
-            'best_prize' => 0,
-            'highest_bet' => 0,
-            'highest_streak' => 0,
-            'alcoholic_drink' => 0,
-            'hydrating_drink' => 0,
-            'toxic_substances' => 0,
-        ]);
+            // Crear el usuario
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'birth_date' => $request->birth_date
+            ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            // Crear estadísticas iniciales
+            GameStatistic::create([
+                'user_id' => $user->id,
+                'player_id' => 'P' . str_pad($user->id, 8, '0', STR_PAD_LEFT),
+                'balance' => 1000.00,
+                'games_played' => 0,
+                'most_played_game' => 'None',
+                'games_won' => 0,
+                'games_lost' => 0,
+                'win_rate' => 0,
+                'average_bet' => 0,
+                'total_winnings' => 0,
+                'total_losses' => 0,
+                'last_prize' => 0,
+                'best_prize' => 0,
+                'highest_bet' => 0,
+                'highest_streak' => 0,
+                'alcoholic_drink' => 0,
+                'hydrating_drink' => 0,
+                'toxic_substances' => 0,
+            ]);
 
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'message' => 'Registration successful'
-        ], 201);
+            // Crear token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'birth_date' => $user->birth_date
+                ],
+                'token' => $token,
+                'message' => 'Registration successful'
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error during registration',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function login(Request $request)
@@ -63,16 +114,29 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
+        // Buscar el usuario por correo electrónico
         $user = User::where('email', $request->email)->first();
 
+        // Verificar si el usuario existe y si la contraseña es correcta
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Revocar el token actual si existe
+        if ($request->user()) {
+            $request->user()->currentAccessToken()->delete();
+        }
+
+        // Crear un nuevo token para el usuario
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'birth_date' => $user->birth_date // Asegúrate de incluir la fecha de nacimiento si es necesario
+            ],
             'token' => $token,
             'message' => 'Login successful'
         ]);
@@ -125,5 +189,21 @@ class AuthController extends Controller
         $request->user()->update($request->only(['name', 'email', 'birth_date']));
 
         return response()->json(['message' => 'Profile updated successfully']);
+    }
+
+    public function logout(Request $request)
+    {
+        // Revocar el token actual
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Successfully logged out'
+        ]);
+    }
+
+    public function checkEmail($email)
+    {
+        $exists = User::where('email', $email)->exists();
+        return response()->json(['exists' => $exists]);
     }
 }
