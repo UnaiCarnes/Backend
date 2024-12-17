@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\CustomVerifyEmail;
 
-
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -19,11 +21,21 @@ class User extends Authenticatable
         'birth_date', // Añadido birth_date
     ];
 
+    /**
+     *  The attributes that are most assignable
+     * 
+     * @var array
+     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
+        /**
+     *  The attributes that are most assignable
+     * 
+     * @return array
+     */
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
@@ -36,5 +48,10 @@ class User extends Authenticatable
     public function balance()
     {
         return $this->hasOne(Balance::class);
+    }
+
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new CustomVerifyEmail);
     }
 }

@@ -6,6 +6,11 @@ use App\Models\User;
 use App\Models\GameStatistic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Notifications\VerifyEmail;
+
 
 class AuthController extends Controller
 {
@@ -80,8 +85,13 @@ class AuthController extends Controller
                 'toxic_substances' => 0,
             ]);
 
+            // Enviar notificación de verificación de correo electrónico
+            event(new Registered($user));
+
             // Crear token
             $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json(['message' => 'Usuario registrado. Se ha enviado un correo de verificación.'], 201);
 
             return response()->json([
                 'user' => [
@@ -95,11 +105,13 @@ class AuthController extends Controller
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation error during registration: ', $e->errors());
             return response()->json([
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            Log::error('Error during registration: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Error during registration',
                 'error' => $e->getMessage()
@@ -109,38 +121,74 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+        try {
+            $request->validate([
+                'email' => 'required|string|email',
+                'password' => 'required|string',
+            ]);
 
-        // Buscar el usuario por correo electrónico
-        $user = User::where('email', $request->email)->first();
+            $user = User::where('email', $request->email)->first();
 
-        // Verificar si el usuario existe y si la contraseña es correcta
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+            if (!$user || !Hash::check($request->pzassword, $user->password)) {
+                throw ValidationException::withMessages([
+                    'email' => ['Las credenciales proporcionadas son incorrectas.'],
+                ]);
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'birth_date' => $user->birth_date // Asegúrate de incluir la fecha de nacimiento si es necesario
+                ],
+                'token' => $token,
+                'message' => 'Login successful'
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error en el login',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Revocar el token actual si existe
-        if ($request->user()) {
-            $request->user()->currentAccessToken()->delete();
-        }
-
-        // Crear un nuevo token para el usuario
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'birth_date' => $user->birth_date // Asegúrate de incluir la fecha de nacimiento si es necesario
-            ],
-            'token' => $token,
-            'message' => 'Login successful'
-        ]);
     }
+
+    // En tu AuthController
+    public function verifyEmail(Request $request)
+    {
+        try {
+            $user = User::find($request->id);
+            
+            if (!$user) {
+                return redirect(env('FRONTEND_URL') . '/email-verification/error?message=usuario-no-encontrado');
+            }
+
+            if (!hash_equals(sha1($user->getEmailForVerification()), $request->hash)) {
+                return redirect(env('FRONTEND_URL') . '/email-verification/error?message=url-invalida');
+            }
+
+            if ($user->hasVerifiedEmail()) {
+                return redirect(env('FRONTEND_URL') . '/email-verification/error?message=ya-verificado');
+            }
+
+            $user->markEmailAsVerified();
+
+            return redirect(env('FRONTEND_URL') . '/email-verification/success');
+        } catch (\Exception $e) {
+            return redirect(env('FRONTEND_URL') . '/email-verification/error?message=error-general');
+        }
+    }
+
 
     public function profile(Request $request)
     {

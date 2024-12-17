@@ -3,7 +3,7 @@
 return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['http://localhost:3000'], // Tu frontend
+    'allowed_origins' => ['http://localhost:3000', 'http://10.14.0.85:3000'], // Tu frontend
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
