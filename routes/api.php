@@ -22,6 +22,6 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
 
 // Rutas protegidas (requieren autenticación y verificación)
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::get('/profile', [ProfileController::class, 'getUserProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
 });

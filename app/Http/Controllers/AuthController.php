@@ -129,23 +129,19 @@ class AuthController extends Controller
 
             $user = User::where('email', $request->email)->first();
 
-            if (!$user || !Hash::check($request->pzassword, $user->password)) {
+            if (!$user || !Hash::check($request->password, $user->password)) {
                 throw ValidationException::withMessages([
                     'email' => ['Las credenciales proporcionadas son incorrectas.'],
                 ]);
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $user->tokens()->delete();
 
             return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'birth_date' => $user->birth_date // Asegúrate de incluir la fecha de nacimiento si es necesario
-                ],
-                'token' => $token,
-                'message' => 'Login successful'
+                'status' => 'success',
+                'message' => 'Login exitoso',
+                'user' => $user,
+                'token' => $user->createToken('auth_token')->plainTextToken
             ]);
 
         } catch (ValidationException $e) {
@@ -164,29 +160,22 @@ class AuthController extends Controller
     }
 
     // En tu AuthController
-    public function verifyEmail(Request $request)
+    public function verifyEmail($id, $hash)
     {
-        try {
-            $user = User::find($request->id);
-            
-            if (!$user) {
-                return redirect(env('FRONTEND_URL') . '/email-verification/error?message=usuario-no-encontrado');
-            }
-
-            if (!hash_equals(sha1($user->getEmailForVerification()), $request->hash)) {
-                return redirect(env('FRONTEND_URL') . '/email-verification/error?message=url-invalida');
-            }
-
-            if ($user->hasVerifiedEmail()) {
-                return redirect(env('FRONTEND_URL') . '/email-verification/error?message=ya-verificado');
-            }
-
-            $user->markEmailAsVerified();
-
-            return redirect(env('FRONTEND_URL') . '/email-verification/success');
-        } catch (\Exception $e) {
-            return redirect(env('FRONTEND_URL') . '/email-verification/error?message=error-general');
+        $user = User::findOrFail($id);
+    
+        if ($user->email_verified_at) {
+            return response()->json(['message' => 'El correo ya ha sido verificado anteriormente.'], 400);
         }
+    
+        if (!hash_equals(sha1($user->email), $hash)) {
+            return response()->json(['message' => 'El enlace de verificación no es válido.'], 403);
+        }
+    
+        $user->email_verified_at = now();
+        $user->save();
+    
+        return response()->json(['message' => 'Correo verificado con éxito. Ahora puedes iniciar sesión.']);
     }
 
 
