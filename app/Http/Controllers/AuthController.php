@@ -42,10 +42,16 @@ class AuthController extends Controller
                     'after_or_equal:' . now()->subYears(100)->format('Y-m-d') // Máximo 100 años
                 ]
             ], [
-                // Mensajes de error personalizados
+                'name.required' => 'El nombre es obligatorio.',
+                'email.required' => 'El correo es obligatorio.',
+                'email.email' => 'El formato del correo no es válido.',
                 'email.regex' => 'Solo se permiten correos de Gmail.',
+                'email.unique' => 'Este correo ya está registrado.',
+                'password.required' => 'La contraseña es obligatoria.',
+                'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
                 'password.regex' => 'La contraseña debe contener al menos una mayúscula, una minúscula y un número.',
                 'password.confirmed' => 'Las contraseñas no coinciden.',
+                'birth_date.required' => 'La fecha de nacimiento es obligatoria.',
                 'birth_date.before_or_equal' => 'Debes tener al menos 16 años para registrarte.',
                 'birth_date.after_or_equal' => 'La fecha de nacimiento no es válida.'
             ]);
@@ -108,7 +114,7 @@ class AuthController extends Controller
             Log::error('Validation error during registration: ', $e->errors());
             return response()->json([
                 'message' => 'Validation error',
-                'errors' => $e->errors()
+                'error' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             Log::error('Error during registration: ' . $e->getMessage());
@@ -125,14 +131,24 @@ class AuthController extends Controller
             $request->validate([
                 'email' => 'required|string|email',
                 'password' => 'required|string',
+            ], [
+                'email.required' => 'El correo es obligatorio.',
+                'email.email' => 'El formato del correo no es válido.',
+                'password.required' => 'La contraseña es obligatoria.'
             ]);
 
             $user = User::where('email', $request->email)->first();
 
-            if (!$user || !Hash::check($request->password, $user->password)) {
-                throw ValidationException::withMessages([
-                    'email' => ['Las credenciales proporcionadas son incorrectas.'],
-                ]);
+            if (!$user) {
+                return response()->json(['message' => 'El correo no está registrado.'], 404);
+            }
+
+            if (!$user->email_verified_at) {
+                return response()->json(['message' => 'Por favor, verifica tu correo antes de iniciar sesión.'], 403);
+            }
+
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json(['message' => 'Contraseña incorrecta.'], 401);
             }
 
             $user->tokens()->delete();
