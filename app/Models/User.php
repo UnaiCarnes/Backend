@@ -19,6 +19,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'birth_date', // Añadido birth_date
+        'role',
     ];
 
     /**
@@ -53,5 +54,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function sendEmailVerificationNotification()
     {
         $this->notify(new CustomVerifyEmail);
+    }
+        // Añadir esta relación en el modelo User existente
+    public function loans()
+    {
+        return $this->hasMany(Loan::class);
     }
 }
