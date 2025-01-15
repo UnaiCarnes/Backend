@@ -27,6 +27,8 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'getUserProfile']);
     Route::put('/profile', [ProfileController::class, 'updateUserProfile']);
+    Route::put('/profile/balance', [ProfileController::class, 'updateBalance']);
+    Route::put('/profile/statistics', [ProfileController::class, 'updateGameStatistics']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/loans/options', [LoanController::class, 'getLoanOptions']);
     Route::get('/loans/active', [LoanController::class, 'getActiveLoans']);
@@ -39,6 +41,10 @@ Route::middleware(['auth:sanctum', \App\Http\MiddleWare\AdminMiddleware::class])
     Route::post('/admin/manage-users', [AdminController::class, 'manageUsers']);
     Route::post('/admin/manage-games', [AdminController::class, 'manageGames']);
     Route::get('/users', [UserController::class, 'getUsers']);
+    Route::put('/loans/edit', [LoanController::class, 'editLoan']);
+
+    // Nueva ruta para ocultar o activar préstamo
+    Route::put('/loans/hide', [LoanController::class, 'hideLoan']);
 });
 
 

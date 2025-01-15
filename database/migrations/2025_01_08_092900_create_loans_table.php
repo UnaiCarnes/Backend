@@ -18,6 +18,7 @@ return new class extends Migration
             $table->integer('remaining_bets');
             $table->decimal('total_to_pay', 10, 2);
             $table->boolean('is_active')->default(true);
+            $table->boolean('hidden')->default(false);
             $table->timestamps();
         });
     }

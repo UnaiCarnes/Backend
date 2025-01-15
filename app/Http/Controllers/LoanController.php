@@ -20,32 +20,11 @@ class LoanController extends Controller
     public function getLoanOptions()
     {
         try {
-            $user = auth()->user();
-            $activeLoans = Loan::where('user_id', $user->id)
-                              ->where('is_active', true)
-                              ->pluck('amount')
-                              ->toArray();
-
-            $options = collect($this->loanOptions)->map(function($option) use ($activeLoans) {
-                return [
-                    'bank' => $option['bank'],
-                    'amount' => $option['amount'],
-                    'interest' => $option['interest'],
-                    'bets' => $option['bets'],
-                    'isActive' => in_array($option['amount'], $activeLoans)
-                ];
-            });
-
-            return response()->json([
-                'options' => $options,
-                'activeLoans' => $activeLoans
-            ]);
-
+            $bankOptions = DB::table('bank_options')->get();
+            return response()->json(['bankOptions' => $bankOptions]);
         } catch (\Exception $e) {
-            Log::error('Error getting loan options: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Error al obtener opciones de préstamos'
-            ], 500);
+            Log::error('Error al obtener opciones de préstamos: ' . $e->getMessage());
+            return response()->json(['message' => 'Error al obtener opciones'], 500);
         }
     }
 
@@ -143,4 +122,61 @@ class LoanController extends Controller
             ], 500);
         }
     }
+
+    public function editLoan(Request $request)
+{
+    $request->validate([
+        'bank' => 'required|string|exists:loans,bank_name',
+        'newAmount' => 'required|numeric|min:0',
+    ]);
+
+    $bank = $request->input('bank');
+    $newAmount = $request->input('newAmount');
+
+    // Buscar el préstamo relacionado
+    $loan = Loan::where('bank_name', $bank)->first();
+
+    if (!$loan) {
+        return response()->json(['error' => 'Préstamo no encontrado'], 404);
+    }
+
+    DB::transaction(function () use ($loan, $newAmount, $bank) {
+        // Actualizar la cantidad en el préstamo
+        $loan->update(['amount' => $newAmount]);
+
+        // Actualizar la cantidad en la tabla 'bank_options'
+        DB::table('bank_options')
+            ->where('bank', $bank)
+            ->update(['amount' => $newAmount]);
+    });
+
+    return response()->json([
+        'message' => 'Préstamo actualizado con éxito',
+        'loan' => $loan, // Devuelve el préstamo actualizado
+    ]);
+}
+
+public function hideLoan(Request $request)
+{
+    $request->validate([
+        'bank' => 'required|string|exists:loans,bank_name',
+    ]);
+
+    $bank = $request->input('bank');
+
+    $loan = Loan::where('bank_name', $bank)->first();
+    if (!$loan) {
+        return response()->json(['error' => 'Préstamo no encontrado'], 404);
+    }
+
+    // Alterna el estado 'hidden'
+    $loan->hidden = !$loan->hidden;
+    $loan->save();
+
+    return response()->json(['message' => 'Estado del préstamo actualizado']);
+}
+
+
+
+    
 }

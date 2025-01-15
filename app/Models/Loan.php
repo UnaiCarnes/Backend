@@ -17,14 +17,17 @@ class Loan extends Model
         'total_bets',
         'remaining_bets',
         'total_to_pay',
-        'is_active'
+        'is_active', 
+        'hidden'
+
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'amount' => 'decimal:2',
         'interest_rate' => 'decimal:2',
-        'total_to_pay' => 'decimal:2'
+        'total_to_pay' => 'decimal:2',
+        'hidden' => 'boolean'
     ];
 
     public function user()
