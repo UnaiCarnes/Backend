@@ -145,12 +145,12 @@ class ProfileController extends Controller
     {
         try {
             $user = $request->user(); // Obtiene el usuario autenticado
-    
+
             // Verificar si el usuario está autenticado
             if (!$user) {
                 return response()->json(['message' => 'User not authenticated'], 401);
             }
-    
+
             // Validar la entrada
             $request->validate([
                 'gamesPlayed' => 'required|integer',
@@ -164,10 +164,10 @@ class ProfileController extends Controller
                 'highestBet' => 'required|numeric',
                 'highestStreak' => 'required|integer',
             ]);
-    
+
             // Obtener las estadísticas del juego
             $statistics = GameStatistic::where('user_id', $user->id)->first();
-    
+
             // Actualizar las estadísticas
             if ($statistics) {
                 $statistics->games_played += $request->gamesPlayed;
@@ -175,23 +175,23 @@ class ProfileController extends Controller
                 $statistics->games_lost += $request->gamesLost;
                 $statistics->total_winnings += $request->totalWon;
                 $statistics->total_losses += $request->totalLost;
-    
+
                 // Actualizar el historial de premios
-                $statistics->last_prize = $request->lastPrize; // Último premio
-                $statistics->best_prize = max($statistics->best_prize, $request->bestPrize); // Mejor premio
-                $statistics->highest_bet = max($statistics->highest_bet, $request->highestBet); // Mayor apuesta
-                $statistics->highest_streak = max($statistics->highest_streak, $request->highestStreak); // Racha más alta
-    
+                $statistics->last_prize = $request->lastPrize;
+                $statistics->best_prize = max($statistics->best_prize, $request->bestPrize);
+                $statistics->highest_bet = max($statistics->highest_bet, $request->highestBet);
+                $statistics->highest_streak = max($statistics->highest_streak, $request->highestStreak);
+
                 // Actualizar el juego más jugado
                 $statistics->most_played_game = 'Blackjack'; // Actualizar a Blackjack
-    
+
                 // Calcular la media de apuestas y la tasa de ganancia
                 $statistics->average_bet = ($statistics->total_winnings + $statistics->total_losses) / ($statistics->games_played > 0 ? $statistics->games_played : 1);
                 $statistics->win_rate = ($statistics->games_won / ($statistics->games_played > 0 ? $statistics->games_played : 1)) * 100;
-    
+
                 $statistics->save();
             }
-    
+
             return response()->json(['message' => 'Game statistics updated successfully']);
         } catch (\Exception $e) {
             Log::error('Error updating game statistics: ' . $e->getMessage());
