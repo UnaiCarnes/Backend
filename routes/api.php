@@ -29,11 +29,11 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'updateUserProfile']);
     Route::put('/profile/balance', [ProfileController::class, 'updateBalance']);
     Route::put('/profile/statistics', [ProfileController::class, 'updateGameStatistics']);
-    Route::put('/profile/streak', [ProfileController::class, 'updateStreak']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/loans/options', [LoanController::class, 'getLoanOptions']);
     Route::get('/loans/active', [LoanController::class, 'getActiveLoans']);
     Route::post('/loans/take', [LoanController::class, 'takeLoan']);
+    Route::post('/loans/deduct', [LoanController::class, 'deductLoanAmount']);
 });
 
 // Rutas para administradores

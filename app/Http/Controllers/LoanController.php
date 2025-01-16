@@ -37,7 +37,6 @@ public function takeLoan(Request $request)
         $user = auth()->user();
         $amount = $request->amount;
 
-        // Verificar si el préstamo existe en las opciones disponibles
         $loanOption = DB::table('bank_options')
             ->where('amount', $amount)
             ->where('hidden', 0)
@@ -47,7 +46,6 @@ public function takeLoan(Request $request)
             return response()->json(['message' => 'Préstamo no válido'], 400);
         }
 
-        // Verificar si ya tiene un préstamo activo para el mismo banco
         $hasActiveLoan = Loan::where('user_id', $user->id)
             ->where('bank_name', $loanOption->bank)
             ->where('is_active', true)
@@ -61,11 +59,10 @@ public function takeLoan(Request $request)
 
         DB::beginTransaction();
 
-        // Calcular el total a pagar
         $interestRate = $loanOption->interest / 100;
         $totalToPay = $amount * (1 + $interestRate);
 
-        Loan::create([
+        $newLoan = Loan::create([
             'user_id' => $user->id,
             'bank_name' => $loanOption->bank,
             'amount' => $amount,
@@ -76,7 +73,6 @@ public function takeLoan(Request $request)
             'is_active' => true
         ]);
 
-        // Actualizar el balance en GameStatistic
         $statistics = GameStatistic::where('user_id', $user->id)->first();
         $statistics->balance += $amount;
         $statistics->save();
@@ -86,16 +82,15 @@ public function takeLoan(Request $request)
         return response()->json([
             'message' => 'Préstamo concedido exitosamente',
             'newBalance' => $statistics->balance,
-            'loanId' => $newLoan->id
+            'loan' => $newLoan
         ]);
     } catch (\Exception $e) {
         DB::rollBack();
         Log::error('Error processing loan: ' . $e->getMessage());
-        return response()->json([
-            'message' => 'Error al procesar el préstamo'
-        ], 500);
+        return response()->json(['message' => 'Error al procesar el préstamo'], 500);
     }
 }
+
 
 
 public function getActiveLoans()
@@ -172,8 +167,72 @@ public function hideLoan(Request $request)
     return response()->json(['message' => $message]);
 }
 
+public function deductLoanAmount(Request $request)
+{
+    try {
+        $user = auth()->user();
+        $statistics = GameStatistic::where('user_id', $user->id)->first();
 
+        if (!$statistics) {
+            return response()->json(['message' => 'No se encontraron estadísticas del usuario'], 404);
+        }
 
+        // Obtener préstamos activos
+        $activeLoans = Loan::where('user_id', $user->id)
+            ->where('is_active', true)
+            ->orderBy('remaining_bets', 'asc') // Priorizar préstamos con menos tiradas restantes
+            ->get();
+
+        if ($activeLoans->isEmpty()) {
+            return response()->json(['message' => 'No hay préstamos activos'], 400);
+        }
+
+        // Iterar sobre los préstamos activos para realizar deducciones
+        foreach ($activeLoans as $loan) {
+            $costPerTurn = $loan->total_to_pay / $loan->total_bets; // Costo por tirada
+
+            if ($statistics->balance >= $costPerTurn) {
+                // Deducir balance del usuario
+                $statistics->balance -= $costPerTurn;
+                $loan->remaining_bets -= 1;
+
+                // Marcar el préstamo como pagado si ya no quedan tiradas
+                if ($loan->remaining_bets <= 0) {
+                    $loan->is_active = false;
+                }
+
+                $loan->save();
+            } else {
+                // Si no puede pagar completamente la tirada, marcar el préstamo como parcialmente pagado
+                $loan->remaining_bets -= 1;
+                $statistics->balance = 0;
+
+                if ($loan->remaining_bets <= 0) {
+                    $loan->is_active = false;
+                }
+
+                $loan->save();
+                break; // Detener el ciclo ya que el balance es insuficiente
+            }
+        }
+
+        $statistics->save();
+
+        return response()->json([
+            'newBalance' => $statistics->balance,
+            'remainingLoans' => $activeLoans->map(function ($loan) {
+                return [
+                    'id' => $loan->id,
+                    'remainingBets' => $loan->remaining_bets,
+                    'isActive' => $loan->is_active,
+                ];
+            }),
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error al deducir monto del préstamo: ' . $e->getMessage());
+        return response()->json(['message' => 'Error al deducir monto del préstamo'], 500);
+    }
+}
 
     
 }
