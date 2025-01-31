@@ -18,10 +18,11 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
-        'birth_date', // Añadido birth_date
+        'birth_date',
         'role',
+        'deleted'
     ];
-
+    
     /**
      *  The attributes that are most assignable
      * 
@@ -40,7 +41,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        'birth_date' => 'date', // Asegúrate de que birth_date se maneje como una fecha
+        'birth_date' => 'date',
     ];
 
     /**

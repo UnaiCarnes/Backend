@@ -147,6 +147,10 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Por favor, verifica tu correo antes de iniciar sesión.'], 403);
             }
 
+            if ($user->deleted) {
+                return response()->json(['message' => 'Tu cuenta ha sido desactivada. Contacta con el administrador.'], 403);
+            }
+
             if (!Hash::check($request->password, $user->password)) {
                 return response()->json(['message' => 'Contraseña incorrecta.'], 401);
             }

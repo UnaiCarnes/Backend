@@ -11,9 +11,7 @@ class UserController extends Controller
     {
         try {
             // Filtramos usuarios que tienen un valor en el campo 'email_verified_at'
-            $users = User::whereNotNull('email_verified_at')  // Filtro para verificar que el campo no sea nulo
-                        ->select('id', 'name', 'email', 'email_verified_at') // Agregamos 'email_verified_at' al select
-                        ->get();
+            $users = User::whereNotNull('email_verified_at')->get();
             
             // Retornamos los usuarios filtrados en formato JSON
             return response()->json(['users' => $users], 200);

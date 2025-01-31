@@ -42,13 +42,7 @@ Route::middleware(['auth:sanctum', \App\Http\MiddleWare\AdminMiddleware::class])
     Route::post('/admin/manage-users', [AdminController::class, 'manageUsers']);
     Route::post('/admin/manage-games', [AdminController::class, 'manageGames']);
     Route::get('/users', [UserController::class, 'getUsers']);
+    Route::put('/users/hide', [AdminController::class, 'hideUser']);
     Route::put('/loans/edit', [LoanController::class, 'editLoan']);
-
-    // Nueva ruta para ocultar o activar préstamo
     Route::put('/loans/hide', [LoanController::class, 'hideLoan']);
 });
-
-
-// Ruta protegida con middleware IsAdmin
-Route::get('/api/users', [UserController::class, 'getUsers'])->middleware(\App\Http\Middleware\IsAdmin::class);
-
