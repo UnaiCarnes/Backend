@@ -170,9 +170,10 @@ class ProfileController extends Controller
 
             // Actualizar las estadísticas
             if ($statistics) {
-                $statistics->games_played += $request->gamesPlayed;
-                $statistics->games_won += $request->gamesWon;
-                $statistics->games_lost += $request->gamesLost;
+                $statistics->games_played += 1;
+                // Asegurar que solo se sume 1 juego ganado o perdido
+                $statistics->games_won += ($request->gamesWon > 0) ? 1 : 0;
+                $statistics->games_lost += ($request->gamesLost > 0) ? 1 : 0;
                 $statistics->total_winnings += $request->totalWon;
                 $statistics->total_losses += $request->totalLost;
 
